@@ -1,3 +1,5 @@
+from joblib import Memory
+
 PREM_TEAMS = {
     "Arsenal": ["Arsenal"],
     "Aston Villa": ["Aston Villa"],
@@ -29,3 +31,7 @@ PREM_TEAMS = {
 }
 
 CLOB_URL = "https://clob.polymarket.com/prices-history"
+
+MAX_CALLS = 6
+CALL_PERIOD = 10
+MEMORY = Memory(location="./cache")

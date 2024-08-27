@@ -1,1 +1,10 @@
 py-clob-client
+pandas
+plotly
+tqdm
+requests
+jupyter
+ratelimit
+backoff
+joblib
+pyarrow

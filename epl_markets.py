@@ -1,8 +1,15 @@
 import re
-import pandas as pd
-from py_clob_client.client import ClobClient
+import time
 
-from constants import PREM_TEAMS
+import backoff
+import pandas as pd
+import py_clob_client
+import ratelimit
+from py_clob_client.client import ClobClient
+from py_clob_client.exceptions import PolyApiException, PolyException
+from ratelimit import limits
+
+from constants import CALL_PERIOD, MAX_CALLS, MEMORY, PREM_TEAMS
 
 
 # List of EPL teams and common abbreviations
@@ -104,12 +111,21 @@ def check_is_match_simple(text):
         return True
 
 
+# @backoff.on_exception(backoff.expo,
+#                       ratelimit.exception.RateLimitException, max_tries=20, max_time=120)
+# @limits(calls=MAX_CALLS, period=CALL_PERIOD)
+@MEMORY.cache
+def get_markets_paginated(cursor):
+    time.sleep(1)
+    return client.get_markets(next_cursor=cursor)
+
+
 def get_epl_matches(client):
     resp = client.get_markets(next_cursor="")
 
     output_rows = []
     while resp["limit"] == resp["count"]:
-        resp = client.get_markets(next_cursor=resp["next_cursor"])
+        resp = get_markets_paginated(resp["next_cursor"])
 
         for market in resp["data"]:
             question = market["question"]
