@@ -1,15 +1,16 @@
 import re
 import time
-
+import ast
 import backoff
 import pandas as pd
 import py_clob_client
 import ratelimit
+import requests
 from py_clob_client.client import ClobClient
 from py_clob_client.exceptions import PolyApiException, PolyException
 from ratelimit import limits
 
-from constants import CALL_PERIOD, MAX_CALLS, MEMORY, PREM_TEAMS
+from constants import CALL_PERIOD, GAMMA_URL, MAX_CALLS, MEMORY, PREM_TEAMS
 
 
 # List of EPL teams and common abbreviations
@@ -114,39 +115,61 @@ def check_is_match_simple(text):
 # @backoff.on_exception(backoff.expo,
 #                       ratelimit.exception.RateLimitException, max_tries=20, max_time=120)
 # @limits(calls=MAX_CALLS, period=CALL_PERIOD)
+# @MEMORY.cache
+# def get_markets_paginated(cursor):
+#     time.sleep(1)
+#     return client.get_markets(next_cursor=cursor)
+
 @MEMORY.cache
-def get_markets_paginated(cursor):
+def get_markets_paginated(offset, limit):
     time.sleep(1)
-    return client.get_markets(next_cursor=cursor)
+    url = f"{GAMMA_URL}/markets?limit=100&closed=true&offset={limit*offset}"
+    resp = requests.get(url)
+    if resp.status_code != 200:
+        print(f"Failed to get data for offset {offset}")
+        return []
+    return resp.json()
+
+
 
 
 def get_epl_matches(client):
-    resp = client.get_markets(next_cursor="")
+
+    limit = 100
+    offset = 0
+    resp_json = get_markets_paginated(offset, limit)
 
     output_rows = []
-    while resp["limit"] == resp["count"]:
-        resp = get_markets_paginated(resp["next_cursor"])
-
-        for market in resp["data"]:
+    while len(resp_json) == limit:
+        offset += 1
+        resp_json = get_markets_paginated(offset, limit)
+        print(resp_json[0]["question"])
+        for market in resp_json:
             question = market["question"]
 
             is_epl_match, winner, loser, draw = extract_match_details(question)
 
             if is_epl_match:
+                print("Match extracted", question)
+                print(market["outcomes"])
+                outcomes = ast.literal_eval(market["outcomes"])
+                token_ids = ast.literal_eval(market["clobTokenIds"])
                 row = {
                     "winner": winner,
                     "loser": loser,
                     "is_draw": draw,
-                    "conditon_id": market["condition_id"],
-                    "question_id": market["question_id"],
+                    "conditon_id": market["conditionId"],
+                    "question_id": market["questionID"],
+                    "id": market["id"],
                     "description": market["description"],
-                    "end_date_iso": market["end_date_iso"],
-                    "game_start_time": market["game_start_time"],
+                    "end_date_iso": market.get("endDateIso", None),
+                    "uma_end_data": market.get("umaEndDate", None),
+                    # "game_start_time": market["game_start_time"],
                     "closed": market["closed"],
-                    "first_token_id": market["tokens"][0]["token_id"],
-                    "first_token_outcome": market["tokens"][0]["outcome"],
-                    "second_token_id": market["tokens"][1]["token_id"],
-                    "second_token_outcome": market["tokens"][1]["outcome"],
+                    "first_token_id": token_ids[0],
+                    "first_token_outcome": outcomes[0],
+                    "second_token_id": token_ids[1],
+                    "second_token_outcome": outcomes[1],
                 }
                 output_rows.append(row)
 

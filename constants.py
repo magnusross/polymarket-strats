@@ -31,6 +31,7 @@ PREM_TEAMS = {
 }
 
 CLOB_URL = "https://clob.polymarket.com/prices-history"
+GAMMA_URL = "https://gamma-api.polymarket.com"
 
 MAX_CALLS = 6
 CALL_PERIOD = 10
