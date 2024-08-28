@@ -112,16 +112,14 @@ def check_is_match_simple(text):
         return True
 
 
-# @backoff.on_exception(backoff.expo,
-#                       ratelimit.exception.RateLimitException, max_tries=20, max_time=120)
-# @limits(calls=MAX_CALLS, period=CALL_PERIOD)
-# @MEMORY.cache
-# def get_markets_paginated(cursor):
-#     time.sleep(1)
-#     return client.get_markets(next_cursor=cursor)
+@MEMORY.cache
+def get_clob_markets_paginated(cursor):
+    time.sleep(1)
+    return client.get_markets(next_cursor=cursor)
+
 
 @MEMORY.cache
-def get_markets_paginated(offset, limit):
+def get_gamma_markets_paginated(offset, limit):
     time.sleep(1)
     url = f"{GAMMA_URL}/markets?limit=100&closed=true&offset={limit*offset}"
     resp = requests.get(url)
@@ -131,53 +129,84 @@ def get_markets_paginated(offset, limit):
     return resp.json()
 
 
+def parse_gamma_response(market):
+    question = market["question"]
+    is_epl_match, winner, loser, draw = extract_match_details(question)
+
+    if is_epl_match:
+        outcomes = ast.literal_eval(market["outcomes"])
+        outcome_prices = ast.literal_eval(market["outcomePrices"])
+        token_ids = ast.literal_eval(market["clobTokenIds"])
+        row = {
+            "winner": winner,
+            "loser": loser,
+            "is_draw": draw,
+            "condition_id": market["conditionId"],
+            "question_id": market.get("questionID", None),
+            "id": market["id"],
+            "description": market["description"],
+            "end_date_iso": market.get("endDateIso", None),
+            "uma_end_data": market.get("umaEndDate", None),
+            # "game_start_time": market["game_start_time"],
+            "volume": float(market["volume"]),
+            "closed": market["closed"],
+            "first_token_id": token_ids[0],
+            "first_token_outcome": outcomes[0],
+            "first_token_price": float(outcome_prices[0]),
+            "second_token_id": token_ids[1],
+            "second_token_outcome": outcomes[1],
+            "second_token_price": float(outcome_prices[1]),
+        }
+
+        if check_is_match_simple(question) and not is_epl_match:
+            print("Skipping question that could be a match - ", question)
+
+        return row
 
 
-def get_epl_matches(client):
-
+def get_epl_matches_gamma():
     limit = 100
     offset = 0
-    resp_json = get_markets_paginated(offset, limit)
+    resp_json = get_gamma_markets_paginated(offset, limit)
 
     output_rows = []
     while len(resp_json) == limit:
         offset += 1
-        resp_json = get_markets_paginated(offset, limit)
-        print(resp_json[0]["question"])
+        resp_json = get_gamma_markets_paginated(offset, limit)
         for market in resp_json:
+            row = parse_gamma_response(market)
+            if row:
+                output_rows.append(row)
+
+    return pd.DataFrame(output_rows)
+
+
+def get_epl_matches_clob():
+    # we need to hit this too to get the game start time
+    resp = get_clob_markets_paginated(cursor="")
+
+    output_rows = []
+    while resp["limit"] == resp["count"]:
+        resp = get_clob_markets_paginated(cursor=resp["next_cursor"])
+
+        for market in resp["data"]:
             question = market["question"]
 
             is_epl_match, winner, loser, draw = extract_match_details(question)
 
             if is_epl_match:
-                print("Match extracted", question)
-                print(market["outcomes"])
-                outcomes = ast.literal_eval(market["outcomes"])
-                token_ids = ast.literal_eval(market["clobTokenIds"])
                 row = {
                     "winner": winner,
                     "loser": loser,
                     "is_draw": draw,
-                    "conditon_id": market["conditionId"],
-                    "question_id": market["questionID"],
-                    "id": market["id"],
-                    "description": market["description"],
-                    "end_date_iso": market.get("endDateIso", None),
-                    "uma_end_data": market.get("umaEndDate", None),
-                    # "game_start_time": market["game_start_time"],
-                    "closed": market["closed"],
-                    "first_token_id": token_ids[0],
-                    "first_token_outcome": outcomes[0],
-                    "second_token_id": token_ids[1],
-                    "second_token_outcome": outcomes[1],
+                    "condition_id": market["condition_id"],
+                    "question_id": market["question_id"],
+                    "game_start_time": pd.to_datetime(market["game_start_time"]),
                 }
                 output_rows.append(row)
 
             if check_is_match_simple(question) and not is_epl_match:
                 print("Skipping question that could be a match - ", question)
-
-            # if is_epl_match:
-            #     print(f"Match Found: Winner - {winner}, Loser - {loser}")
 
     return pd.DataFrame(output_rows)
 
@@ -185,5 +214,11 @@ def get_epl_matches(client):
 if __name__ == "__main__":
     client = ClobClient("https://clob.polymarket.com/")
 
-    df = get_epl_matches(client=client)
+    clob_df = get_epl_matches_clob()
+    gamma_df = get_epl_matches_gamma()
+    df = pd.merge(
+        gamma_df,
+        clob_df,
+        on=["winner", "loser", "is_draw", "condition_id", "question_id"],
+    ).convert_dtypes()
     df.to_parquet("epl_markets.parquet")
