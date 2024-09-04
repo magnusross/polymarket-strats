@@ -13,7 +13,34 @@ from ratelimit import limits
 from constants import CALL_PERIOD, GAMMA_URL, MAX_CALLS, MEMORY, PREM_TEAMS
 
 
-# List of EPL teams and common abbreviations
+def extract_vs_match_details(text):
+    if "vs." not in text:
+        return False, None, None
+    
+    # print(text)
+
+    first_team, second_team = text.strip().split("vs.")
+    # print(first_team, second_team)
+    
+    first_team_match, second_team_match = False, False
+
+    # for team in (first_team, second_team):
+    for abbrvs in PREM_TEAMS.values():   
+        if first_team.strip() in abbrvs:
+            first_team_match = True
+
+        if second_team.strip() in abbrvs:
+            second_team_match = True
+
+    if first_team_match and second_team_match:
+        return True, first_team, second_team
+    
+    else:
+        return False, None, None 
+
+
+
+
 
 
 # Function to determine if the string describes a match and extract teams or a draw
@@ -80,36 +107,14 @@ def extract_match_details(text):
     return True, winner, loser, False
 
 
-# Test cases
-# texts = [
-#     "Will Manchester City win vs Chelsea?",
-#     "Will Brighton beat Manchester United?",
-#     "Can Liverpool lose to Arsenal?",
-#     "Is Tottenham going to win against Everton?",
-#     "Will Aston Villa defeat Bournemouth?",
-#     "Will Man City beat Bournemouth? (02/25/2023)",
-#     "Will Tottenham beat Chelsea? (02/26/2023)",
-#     "Will Man United draw with Liverpool?",
-#     "Is it possible that Arsenal and Chelsea will tie?",
-#     "Do you think the match between Spurs and Man City will end in a draw?"
-# ]
-
-# for text in texts:
-#     match, winner, loser, is_draw = extract_match_details(text)
-#     if match:
-#         if is_draw:
-#             print(f"Match Found: {winner} vs {loser}, Result - Draw")
-#         else:
-#             print(f"Match Found: Winner - {winner}, Loser - {loser}")
-#     else:
-#         print("No match description found.")
-
 
 def check_is_match_simple(text):
     if any([(team in text) for team in PREM_TEAMS]) and (
         ("vs" in text) or ("beat" in text)
     ):
         return True
+
+
 
 
 @MEMORY.cache
@@ -131,6 +136,12 @@ def get_gamma_markets_paginated(offset, limit):
 
 def parse_gamma_response(market):
     question = market["question"]
+
+    is_vs_match, first_team, second_team = extract_vs_match_details(question)
+    if is_vs_match:
+        print(question)
+        print(market["description"])
+
     is_epl_match, winner, loser, draw = extract_match_details(question)
 
     if is_epl_match:
@@ -201,7 +212,7 @@ def get_epl_matches_clob():
                     "is_draw": draw,
                     "condition_id": market["condition_id"],
                     "question_id": market["question_id"],
-                    "game_start_time": pd.to_datetime(market["game_start_time"]),
+                    "game_start_time": pd.to_datetime(market["game_start_time"]).tz_convert("UTC").tz_localize(None),
                 }
                 output_rows.append(row)
 

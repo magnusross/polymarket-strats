@@ -33,10 +33,11 @@ def get_historical_data(asset_id, startTs, fidelity):
     return df
 
 
-def get_data_for_token(token_id, end_time_str):
-    date_format = "%Y-%m-%dT%H:%M:%SZ"
+def get_data_for_token(token_id, end_datetime):
+    # date_format = "%Y-%m-%dT%H:%M:%SZ"
 
-    end_datetime = datetime.strptime(end_time_str, date_format)
+
+    # end_datetime = datetime.strptime(end_time_str, date_format)
     start_datetime = end_datetime - timedelta(weeks=4)
 
     start_unix_timestamp = start_datetime.timestamp()
