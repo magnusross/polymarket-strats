@@ -36,7 +36,6 @@ def get_historical_data(asset_id, startTs, fidelity):
 def get_data_for_token(token_id, end_datetime):
     # date_format = "%Y-%m-%dT%H:%M:%SZ"
 
-
     # end_datetime = datetime.strptime(end_time_str, date_format)
     start_datetime = end_datetime - timedelta(weeks=4)
 
@@ -57,12 +56,13 @@ if __name__ == "__main__":
 
     all_histories = {}
     for i, row in tqdm(markets_info_df.iterrows()):
-        if (row["first_token_id"] is None) or (row["game_start_time"] is None):
-            print(f"No first token id, skipping for {row}")
-            continue
-        history = get_data_for_token(row["first_token_id"], row["game_start_time"])
-        all_histories[row["first_token_id"]] = history
-        sleep(1)
+        for token_id in [row["first_token_id"], row["second_token_id"]]:
+            if (token_id is None) or (row["game_start_time"] is None):
+                print(f"No first token id, skipping for {row}")
+                continue
+            history = get_data_for_token(token_id, row["game_start_time"])
+            all_histories[token_id] = history
+            sleep(1)
 
     all_histories_df = pd.concat(all_histories)
-    all_histories_df.to_parquet("first_token_histories.parquet")
+    all_histories_df.to_parquet("token_histories.parquet")

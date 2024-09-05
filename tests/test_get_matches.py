@@ -1,4 +1,3 @@
-
 # Test cases
 # texts = [
 #     "Will Manchester City win vs Chelsea?",

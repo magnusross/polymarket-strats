@@ -16,16 +16,16 @@ from constants import CALL_PERIOD, GAMMA_URL, MAX_CALLS, MEMORY, PREM_TEAMS
 def extract_vs_match_details(text):
     if "vs." not in text:
         return False, None, None
-    
+
     # print(text)
 
     first_team, second_team = text.strip().split("vs.")
     # print(first_team, second_team)
-    
+
     first_team_match, second_team_match = False, False
 
     # for team in (first_team, second_team):
-    for abbrvs in PREM_TEAMS.values():   
+    for abbrvs in PREM_TEAMS.values():
         if first_team.strip() in abbrvs:
             first_team_match = True
 
@@ -34,13 +34,9 @@ def extract_vs_match_details(text):
 
     if first_team_match and second_team_match:
         return True, first_team, second_team
-    
+
     else:
-        return False, None, None 
-
-
-
-
+        return False, None, None
 
 
 # Function to determine if the string describes a match and extract teams or a draw
@@ -107,14 +103,11 @@ def extract_match_details(text):
     return True, winner, loser, False
 
 
-
 def check_is_match_simple(text):
     if any([(team in text) for team in PREM_TEAMS]) and (
         ("vs" in text) or ("beat" in text)
     ):
         return True
-
-
 
 
 @MEMORY.cache
@@ -138,11 +131,12 @@ def parse_gamma_response(market):
     question = market["question"]
 
     is_vs_match, first_team, second_team = extract_vs_match_details(question)
-    if is_vs_match:
-        print(question)
-        print(market["description"])
 
     is_epl_match, winner, loser, draw = extract_match_details(question)
+
+    if check_is_match_simple(question) and not is_epl_match:
+        print("Gamma - Skipping question that could be a match - ", question)
+        print("Gamma - vs match", is_vs_match)
 
     if is_epl_match:
         outcomes = ast.literal_eval(market["outcomes"])
@@ -152,6 +146,7 @@ def parse_gamma_response(market):
             "winner": winner,
             "loser": loser,
             "is_draw": draw,
+            "question": question,
             "condition_id": market["conditionId"],
             "question_id": market.get("questionID", None),
             "id": market["id"],
@@ -168,10 +163,6 @@ def parse_gamma_response(market):
             "second_token_outcome": outcomes[1],
             "second_token_price": float(outcome_prices[1]),
         }
-
-        if check_is_match_simple(question) and not is_epl_match:
-            print("Skipping question that could be a match - ", question)
-
         return row
 
 
@@ -202,6 +193,7 @@ def get_epl_matches_clob():
 
         for market in resp["data"]:
             question = market["question"]
+            is_vs_match, first_team, second_team = extract_vs_match_details(question)
 
             is_epl_match, winner, loser, draw = extract_match_details(question)
 
@@ -212,13 +204,15 @@ def get_epl_matches_clob():
                     "is_draw": draw,
                     "condition_id": market["condition_id"],
                     "question_id": market["question_id"],
-                    "game_start_time": pd.to_datetime(market["game_start_time"]).tz_convert("UTC").tz_localize(None),
+                    "game_start_time": pd.to_datetime(market["game_start_time"])
+                    .tz_convert("UTC")
+                    .tz_localize(None),
                 }
                 output_rows.append(row)
 
             if check_is_match_simple(question) and not is_epl_match:
-                print("Skipping question that could be a match - ", question)
-
+                print("CLOB - Skipping question that could be a match - ", question)
+                print("CLOB - vs match", is_vs_match)
     return pd.DataFrame(output_rows)
 
 
