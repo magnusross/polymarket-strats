@@ -197,6 +197,14 @@ def get_epl_matches_clob():
 
             is_epl_match, winner, loser, draw = extract_match_details(question)
 
+            game_time_str = market["game_start_time"]
+            if game_time_str:
+                game_time = (
+                    pd.to_datetime(game_time_str).tz_convert("UTC").tz_localize(None)
+                )
+            else:
+                continue
+
             if is_epl_match:
                 row = {
                     "winner": winner,
@@ -204,9 +212,7 @@ def get_epl_matches_clob():
                     "is_draw": draw,
                     "condition_id": market["condition_id"],
                     "question_id": market["question_id"],
-                    "game_start_time": pd.to_datetime(market["game_start_time"])
-                    .tz_convert("UTC")
-                    .tz_localize(None),
+                    "game_start_time": game_time,
                 }
                 output_rows.append(row)
 

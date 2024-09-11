@@ -136,8 +136,7 @@ if __name__ == "__main__":
 
     print(df[[c for c in df.columns if not c.endswith("_id")]])
 
-
-    # Sanity check for known game 
+    # Sanity check for known game
     # https://polymarket.com/event/epl-manchester-city-vs-ipswich-town?tid=1726066349636
     test_df = df.loc[
         (df.first_team == "Manchester City")
