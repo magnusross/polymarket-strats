@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 
 *.parquet
+cache
+.ruff_cache

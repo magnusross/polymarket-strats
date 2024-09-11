@@ -1,3 +1,5 @@
+from joblib import Memory
+
 PREM_TEAMS = {
     "Arsenal": ["Arsenal"],
     "Aston Villa": ["Aston Villa"],
@@ -17,8 +19,8 @@ PREM_TEAMS = {
     "Manchester United": ["Man United", "Manchester United", "Manchester Utd"],
     "Newcastle United": ["Newcastle", "Newcastle United"],
     "Norwich City": ["Norwich", "Norwich City"],
-    "Nottingham Forest": ["Nottingham Forest", "Forest"],
-    "Sheffield United": ["Sheffield United", "Sheffield"],
+    "Nottingham Forest": ["Nottingham Forest", "Forest", "Nott. Forest"],
+    "Sheffield United": ["Sheffield United", "Sheffield", "Sheff. Utd"],
     "Southampton": ["Southampton"],
     "Tottenham Hotspur": ["Tottenham", "Spurs", "Tottenham Hotspur"],
     "Watford": ["Watford"],
@@ -29,3 +31,8 @@ PREM_TEAMS = {
 }
 
 CLOB_URL = "https://clob.polymarket.com/prices-history"
+GAMMA_URL = "https://gamma-api.polymarket.com"
+
+MAX_CALLS = 6
+CALL_PERIOD = 10
+MEMORY = Memory(location="./cache")
