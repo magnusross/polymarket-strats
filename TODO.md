@@ -1,5 +1,4 @@
 - [ ] Make rate limiting and caching nice and play nice together 
 - [ ] Refactor EPL markets so gamma and clob share interface 
-- [ ] Combine token outcomes into single match outcomes     
+- [x] Combine token outcomes into single match outcomes     
 - [ ] Write something to parse matches in "Wolves vs. Arsenal" format
-- [ ] 

@@ -6,7 +6,7 @@ from time import sleep
 import pandas as pd
 import requests
 
-from constants import CALL_PERIOD, CLOB_URL, MAX_CALLS
+from constants import CALL_PERIOD, CLOB_URL, MAX_CALLS, MEMORY
 
 
 def parse_raw_history_to_df(raw_history):
@@ -20,9 +20,11 @@ def parse_raw_history_to_df(raw_history):
 
 
 # @limits(calls=MAX_CALLS, period=CALL_PERIOD)
+#
+@MEMORY.cache
 def get_historical_data(asset_id, startTs, fidelity):
     url = f"{CLOB_URL}?startTs={startTs}&market={asset_id}&earliestTimestamp={startTs}&fidelity={fidelity}"
-
+    sleep(1)
     resp = requests.get(url)
     if resp.status_code != 200:
         print(f"Failed to get data for {asset_id}")
@@ -60,9 +62,10 @@ if __name__ == "__main__":
             if (token_id is None) or (row["game_start_time"] is None):
                 print(f"No first token id, skipping for {row}")
                 continue
-            history = get_data_for_token(token_id, row["game_start_time"])
+            history = get_data_for_token(
+                token_id, row["game_start_time"] + pd.Timedelta(minutes=150)
+            )
             all_histories[token_id] = history
-            sleep(1)
 
     all_histories_df = pd.concat(all_histories)
     all_histories_df.to_parquet("token_histories.parquet")
